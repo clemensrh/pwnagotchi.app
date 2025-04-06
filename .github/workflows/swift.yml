@@ -1,7 +1,7 @@
-# This workflow will build an iOS project for iPhone 12 Pro on iOS 18.4 and export an IPA
+# This workflow will build an iOS project and export an IPA
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
 
-name: iOS Build for iPhone 12 Pro (iOS 18.4)
+name: iOS Build
 
 on:
   push:
@@ -25,12 +25,24 @@ jobs:
       - name: Install xcpretty
         run: gem install xcpretty
 
-      - name: Build for iPhone 12 Pro (iOS 18.4)
+      - name: List available simulators
+        run: xcrun simctl list devices available
+
+      - name: Set deployment target and build for iOS
         run: |
+          # Update project deployment target to 12.0
+          /usr/libexec/PlistBuddy -c "Set :objects:*:buildSettings:IPHONEOS_DEPLOYMENT_TARGET 12.0" ios-pwnagotchi.xcodeproj/project.pbxproj || echo "Failed to update deployment target"
+
+          # Update Swift optimization level
+          /usr/libexec/PlistBuddy -c "Set :objects:*:buildSettings:SWIFT_OPTIMIZATION_LEVEL -Onone" ios-pwnagotchi.xcodeproj/project.pbxproj || echo "Failed to update optimization level"
+
+          # Build for available iPhone simulator
           xcodebuild clean build -project ios-pwnagotchi.xcodeproj \
             -scheme "ios-pwnagotchi" \
-            -destination "platform=iOS Simulator,name=iPhone 12 Pro,OS=18.4" \
+            -destination "platform=iOS Simulator,name=iPhone 15,OS=17.2" \
             -configuration Release \
+            IPHONEOS_DEPLOYMENT_TARGET=12.0 \
+            SWIFT_OPTIMIZATION_LEVEL="-Onone" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO | xcpretty
 
@@ -45,7 +57,7 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -t 3600 -u "$KEYCHAIN_PATH"
 
-          # Create an archive
+          # Create an archive for iOS only (skip WatchKit)
           mkdir -p build/archive
           xcodebuild archive \
             -project ios-pwnagotchi.xcodeproj \
@@ -54,9 +66,13 @@ jobs:
             -destination "generic/platform=iOS" \
             -sdk iphoneos \
             -archivePath build/archive/ios-pwnagotchi.xcarchive \
+            IPHONEOS_DEPLOYMENT_TARGET=12.0 \
+            SWIFT_OPTIMIZATION_LEVEL="-Onone" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            SKIP_INSTALL=NO \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES
 
           # Create export options plist
           cat > exportOptions.plist << EOL
@@ -72,6 +88,8 @@ jobs:
               <string></string>
               <key>compileBitcode</key>
               <false/>
+              <key>thinning</key>
+              <string>&lt;none&gt;</string>
           </dict>
           </plist>
           EOL
@@ -99,8 +117,8 @@ jobs:
           security delete-keychain "$KEYCHAIN_PATH"
 
       - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
-          name: ios-pwnagotchi-iPhone12Pro-iOS18.4
+          name: ios-pwnagotchi-ipa
           path: build/ipa/*.ipa
           if-no-files-found: error
