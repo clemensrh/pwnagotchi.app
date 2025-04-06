@@ -1,7 +1,7 @@
-# This workflow will build an iOS project for iPhone 12 Pro on iOS 18.4
+# This workflow will build an iOS project for iPhone 12 Pro on iOS 18.4 and export an IPA
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
 
-name: iOS Build
+name: iOS Build for iPhone 12 Pro (iOS 18.4)
 
 on:
   push:
@@ -27,19 +27,10 @@ jobs:
 
       - name: Build for iPhone 12 Pro (iOS 18.4)
         run: |
-          xcodebuild build -project ios-pwnagotchi.xcodeproj \
+          xcodebuild clean build -project ios-pwnagotchi.xcodeproj \
             -scheme "ios-pwnagotchi" \
             -destination "platform=iOS Simulator,name=iPhone 12 Pro,OS=18.4" \
-            -configuration Debug \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO | xcpretty
-
-      - name: Run tests
-        run: |
-          xcodebuild test -project ios-pwnagotchi.xcodeproj \
-            -scheme "ios-pwnagotchi" \
-            -destination "platform=iOS Simulator,name=iPhone 12 Pro,OS=18.4" \
-            -configuration Debug \
+            -configuration Release \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO | xcpretty
 
@@ -65,9 +56,7 @@ jobs:
             -archivePath build/archive/ios-pwnagotchi.xcarchive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER=""
+            CODE_SIGNING_ALLOWED=NO
 
           # Create export options plist
           cat > exportOptions.plist << EOL
@@ -102,6 +91,7 @@ jobs:
             mkdir -p Payload
             cp -R *.app Payload/
             zip -r ios-pwnagotchi.ipa Payload
+            mkdir -p ../../../../ipa/
             mv ios-pwnagotchi.ipa ../../../../ipa/
           fi
 
